@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tunino</title>
+  <link rel="stylesheet" href="/static/css/style.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+</head>
+<body>
+<div id="app" x-data="tunino()" x-init="init()">
+
+  <!-- Mobile menu button -->
+  <button id="mobile-menu-btn" @click="sidebarOpen = !sidebarOpen" aria-label="Menu">☰</button>
+
+  <!-- Sidebar overlay -->
+  <div class="sidebar-overlay" :class="{ show: sidebarOpen }" @click="sidebarOpen = false"></div>
+
+  <!-- ── Sidebar ── -->
+  <aside id="sidebar" :class="{ open: sidebarOpen }">
+    <div class="sidebar-header">
+      <span class="sidebar-logo">tuni<span>no</span></span>
+      <button class="btn btn-primary" style="padding:6px 12px;font-size:0.8rem" @click="showCreateModal = true">+ New</button>
+    </div>
+
+    <div class="sidebar-list">
+      <template x-for="pl in playlists" :key="pl.id">
+        <div class="playlist-item" :class="{ active: activePlaylist?.id === pl.id }" @click="selectPlaylist(pl)">
+          <div class="playlist-thumb" :style="'background:' + pl.bg_color">
+            <template x-if="coverUrl(pl)">
+              <img :src="coverUrl(pl)" :alt="pl.name" />
+            </template>
+            <template x-if="!coverUrl(pl)">
+              <span>♫</span>
+            </template>
+          </div>
+          <div class="playlist-meta">
+            <strong x-text="pl.name"></strong>
+            <span x-text="(pl.items?.length ?? 0) + ' tracks'"></span>
+          </div>
+        </div>
+      </template>
+
+      <template x-if="playlists.length === 0">
+        <div style="padding:24px 16px;text-align:center;color:var(--text-muted);font-size:0.85rem">
+          No playlists yet.<br/>Hit <strong>+ New</strong> to start.
+        </div>
+      </template>
+    </div>
+  </aside>
+
+  <!-- ── Main content ── -->
+  <div id="main">
+    <div id="content">
+
+      <!-- Empty state when no playlist selected -->
+      <template x-if="!activePlaylist">
+        <div class="empty-state" style="height:100%">
+          <div class="icon">♫</div>
+          <h2 style="font-size:1rem;font-weight:600">Your playlists</h2>
+          <p>Select a playlist from the sidebar, or create a new one to get started.</p>
+          <button class="btn btn-primary" @click="showCreateModal = true">+ Create playlist</button>
+        </div>
+      </template>
+
+      <!-- Playlist view -->
+      <template x-if="activePlaylist">
+        <div>
+          <!-- Header -->
+          <div class="playlist-header" id="playlist-header" :style="'--header-color:' + activePlaylist.bg_color">
+
+            <!-- Cover image -->
+            <div class="playlist-cover" @click="triggerCoverUpload()">
+              <template x-if="activePlaylist.cover_image">
+                <img :src="'/uploads/' + activePlaylist.cover_image" :alt="activePlaylist.name" />
+              </template>
+              <template x-if="!activePlaylist.cover_image">
+                <span>♫</span>
+              </template>
+              <div class="cover-upload-hint">
+                <span style="font-size:1.4rem">📷</span>
+                <span>Upload cover</span>
+              </div>
+            </div>
+            <input id="cover-file-input" type="file" accept="image/*" style="display:none" @change="uploadCover($event)" />
+
+            <!-- Info -->
+            <div class="playlist-header-info">
+              <h1 @click="openEdit()" :title="'Click to edit'" x-text="activePlaylist.name"></h1>
+              <p class="header-meta" x-text="activePlaylist.items.length + ' tracks'"></p>
+              <div class="header-actions">
+                <button class="btn-icon play-main" @click="playItem(currentItemIndex ?? 0)" title="Play all">
+                  <span x-text="playing && currentTrack ? '⏸' : '▶'"></span>
+                </button>
+                <button class="btn btn-ghost" @click="openEdit()">✏ Edit</button>
+                <button class="btn btn-ghost" style="color:var(--danger)" @click="deletePlaylist()">🗑</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Add track -->
+          <div class="add-track-area">
+            <form class="add-track-form" @submit.prevent="addTrack()">
+              <input
+                type="text"
+                placeholder="Paste a Bandcamp track or album URL…"
+                x-model="addUrl"
+                :disabled="addLoading"
+              />
+              <template x-if="addLoading">
+                <span class="spinner"></span>
+              </template>
+              <template x-if="!addLoading">
+                <button type="submit" class="btn btn-primary" style="padding:6px 14px">Add</button>
+              </template>
+            </form>
+          </div>
+
+          <!-- Track list -->
+          <div class="track-list">
+            <template x-if="activePlaylist.items.length === 0">
+              <div class="empty-state" style="height:200px">
+                <div class="icon" style="font-size:2rem">🎵</div>
+                <p>Paste a Bandcamp URL above to add tracks or entire albums.</p>
+              </div>
+            </template>
+
+            <template x-for="(item, index) in activePlaylist.items" :key="item.id">
+              <div
+                class="track-row"
+                :class="{ playing: isPlaying(item) }"
+                draggable="true"
+                @dragstart="dragStart($event, index)"
+                @dragover="dragOver($event, index)"
+                @dragend="dragEnd()"
+                @click="playItem(index)"
+              >
+                <span class="drag-handle" @click.stop>⠿</span>
+                <span class="track-num">
+                  <template x-if="isPlaying(item) && playing">
+                    <span style="color:var(--accent)">▶</span>
+                  </template>
+                  <template x-if="!(isPlaying(item) && playing)">
+                    <span x-text="index + 1"></span>
+                  </template>
+                </span>
+                <img class="track-art" :src="item.track.artwork_url || ''" :alt="item.track.title"
+                     onerror="this.style.display='none'" />
+                <div class="track-info">
+                  <div class="track-title" x-text="item.track.title"></div>
+                  <div class="track-artist" x-text="item.track.artist + (item.track.album ? ' · ' + item.track.album : '')"></div>
+                </div>
+                <span class="track-duration" x-text="formatTime(item.track.duration)"></span>
+                <button class="track-remove" @click.stop="removeTrack(item)" title="Remove">✕</button>
+              </div>
+            </template>
+          </div>
+        </div>
+      </template>
+
+    </div><!-- #content -->
+  </div><!-- #main -->
+
+  <!-- ── Player Bar ── -->
+  <div id="player-bar">
+    <!-- Track info -->
+    <div class="player-track-info">
+      <template x-if="currentTrack">
+        <img class="player-art" :src="currentTrack.artwork_url || ''" :alt="currentTrack.title"
+             onerror="this.style.display='none'" />
+      </template>
+      <template x-if="!currentTrack">
+        <div class="player-art" style="background:var(--card)"></div>
+      </template>
+      <div class="player-meta">
+        <div class="player-title" x-text="currentTrack?.title ?? 'No track selected'"></div>
+        <div class="player-artist" x-text="currentTrack?.artist ?? ''"></div>
+      </div>
+    </div>
+
+    <!-- Controls -->
+    <div class="player-controls">
+      <div class="player-buttons">
+        <button class="btn-icon" @click="prev()" title="Previous">⏮</button>
+        <button class="btn-icon large" @click="togglePlay()" title="Play / Pause">
+          <span x-text="playing ? '⏸' : '▶'"></span>
+        </button>
+        <button class="btn-icon" @click="next()" title="Next">⏭</button>
+      </div>
+      <div class="progress-row">
+        <span class="progress-time" x-text="formatTime(currentTime)"></span>
+        <input
+          id="progress-bar"
+          type="range"
+          class="progress-bar"
+          min="0"
+          :max="duration || 100"
+          :value="currentTime"
+          @mousedown="seekStart()"
+          @touchstart="seekStart()"
+          @change="seekEnd($event)"
+          step="0.5"
+        />
+        <span class="progress-time end" x-text="formatTime(duration)"></span>
+      </div>
+    </div>
+
+    <!-- Volume -->
+    <div class="player-volume">
+      <span style="font-size:1rem">🔊</span>
+      <input type="range" min="0" max="1" step="0.01" :value="volume" @input="setVolume($event)" />
+    </div>
+  </div>
+
+  <!-- ── Create Playlist Modal ── -->
+  <div class="modal-backdrop" x-show="showCreateModal" x-transition @click.self="showCreateModal = false">
+    <div class="modal">
+      <h2>New Playlist</h2>
+      <div class="form-row">
+        <label>Name</label>
+        <input type="text" placeholder="My playlist…" x-model="newPlaylist.name"
+               @keydown.enter="createPlaylist()" x-ref="createNameInput" />
+      </div>
+      <div class="form-row">
+        <label>Background colour</label>
+        <div class="color-row">
+          <input type="color" x-model="newPlaylist.bg_color" />
+          <span style="font-size:0.85rem;color:var(--text-muted)" x-text="newPlaylist.bg_color"></span>
+        </div>
+      </div>
+      <div class="form-actions">
+        <button class="btn btn-ghost" @click="showCreateModal = false">Cancel</button>
+        <button class="btn btn-primary" @click="createPlaylist()">Create</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Edit Playlist Modal ── -->
+  <div class="modal-backdrop" x-show="showEditModal" x-transition @click.self="showEditModal = false">
+    <div class="modal">
+      <h2>Edit Playlist</h2>
+      <div class="form-row">
+        <label>Name</label>
+        <input type="text" x-model="editForm.name" @keydown.enter="saveEdit()" />
+      </div>
+      <div class="form-row">
+        <label>Background colour</label>
+        <div class="color-row">
+          <input type="color" x-model="editForm.bg_color" />
+          <span style="font-size:0.85rem;color:var(--text-muted)" x-text="editForm.bg_color"></span>
+        </div>
+      </div>
+      <div class="form-actions">
+        <button class="btn btn-ghost" @click="showEditModal = false">Cancel</button>
+        <button class="btn btn-primary" @click="saveEdit()">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div id="toast"></div>
+
+</div><!-- #app -->
+
+<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+<script src="/static/js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,13 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "tunino",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": ["run.py"],
+      "port": 7842,
+      "autoPort": true,
+      "cwd": "/Users/modica.anto/Documents/GitHub/tunino"
+    }
+  ]
+}
