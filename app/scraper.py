@@ -140,50 +140,93 @@ async def scrape_bandcamp_url(url: str) -> list[dict]:
     return tracks
 
 
+async def _fetch_track_details(client: httpx.AsyncClient, artist_id: str, track_id: str) -> dict | None:
+    """Resolve a Bandcamp track's title and URL via the internal API."""
+    try:
+        r = await client.get(
+            "https://bandcamp.com/api/mobile/25/tralbum_details",
+            params={"band_id": artist_id, "tralbum_id": track_id, "tralbum_type": "t"},
+            headers=HEADERS,
+            timeout=10,
+        )
+        if r.status_code == 200:
+            data = r.json()
+            return {"title": data.get("title", ""), "url": data.get("bandcamp_url", "")}
+    except Exception:
+        pass
+    return None
+
+
 async def scrape_recommendations(bandcamp_url: str) -> list[dict]:
     """
     Scrape the 'If you like X, you may also like:' section from a Bandcamp page.
-    Returns a list of dicts with keys: title, artist, artwork_url, url.
+    Returns a list of dicts with keys: title, artist, artwork_url, url, audio_url.
+    Track titles and URLs are resolved via the Bandcamp internal API in parallel.
     """
     async with httpx.AsyncClient(follow_redirects=True, timeout=30) as client:
         resp = await client.get(bandcamp_url, headers=HEADERS)
         resp.raise_for_status()
 
-    soup = BeautifulSoup(resp.text, "html.parser")
+        soup = BeautifulSoup(resp.text, "html.parser")
+        raw_items = []
+        seen_album_urls = set()
+
+        for item in soup.find_all("li", class_="recommended-album"):
+            album_title = item.get("data-albumtitle", "").strip()
+            artist = item.get("data-artist", "").strip()
+            artist_id = item.get("data-artistid", "").strip()
+            track_id = item.get("data-trackid", "").strip()
+            if not album_title:
+                continue
+
+            link = item.find("a", href=True)
+            if not link:
+                continue
+            album_url = link["href"].split("?")[0]
+            if album_url in seen_album_urls:
+                continue
+            seen_album_urls.add(album_url)
+
+            img = item.find("img")
+            artwork_url = img.get("src", "") if img else ""
+
+            audio_url = ""
+            raw_audio = item.get("data-audiourl", "")
+            if raw_audio:
+                try:
+                    audio_data = json.loads(raw_audio)
+                    audio_url = audio_data.get("mp3-128") or audio_data.get("mp3-v0") or ""
+                except (json.JSONDecodeError, AttributeError):
+                    pass
+
+            raw_items.append({
+                "album_title": album_title,
+                "artist": artist,
+                "artist_id": artist_id,
+                "track_id": track_id,
+                "album_url": album_url,
+                "artwork_url": artwork_url,
+                "audio_url": audio_url,
+            })
+
+        # Resolve track titles and URLs in parallel
+        import asyncio
+        details = await asyncio.gather(*[
+            _fetch_track_details(client, it["artist_id"], it["track_id"])
+            for it in raw_items
+        ])
+
     results = []
-    seen_urls = set()
-
-    for item in soup.find_all("li", class_="recommended-album"):
-        title = item.get("data-albumtitle", "").strip()
-        artist = item.get("data-artist", "").strip()
-        if not title:
-            continue
-
-        link = item.find("a", href=True)
-        if not link:
-            continue
-        # Strip tracking query params from the URL
-        raw_url = link["href"]
-        url = raw_url.split("?")[0]
-        if url in seen_urls:
-            continue
-        seen_urls.add(url)
-
-        img = item.find("img")
-        artwork_url = img.get("src", "") if img else ""
-
-        audio_url = ""
-        raw_audio = item.get("data-audiourl", "")
-        if raw_audio:
-            try:
-                audio_data = json.loads(raw_audio)
-                audio_url = audio_data.get("mp3-128") or audio_data.get("mp3-v0") or ""
-            except (json.JSONDecodeError, AttributeError):
-                pass
-
-        track_id = item.get("data-trackid", "")
-
-        results.append({"title": title, "artist": artist, "artwork_url": artwork_url, "url": url, "audio_url": audio_url, "bandcamp_track_id": track_id})
+    for it, detail in zip(raw_items, details):
+        title = (detail or {}).get("title") or it["album_title"]
+        url = (detail or {}).get("url") or it["album_url"]
+        results.append({
+            "title": title,
+            "artist": it["artist"],
+            "artwork_url": it["artwork_url"],
+            "url": url,
+            "audio_url": it["audio_url"],
+        })
 
     return results
 

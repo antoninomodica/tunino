@@ -114,18 +114,9 @@ function tunino() {
 
     async addRecommendation(rec) {
       this.stopPreview();
-      try {
-        const pl = await this.api('POST', `/playlists/${this.activePlaylist.id}/tracks/single`, {
-          url: rec.url,
-          bandcamp_track_id: rec.bandcamp_track_id || '',
-        });
-        this.activePlaylist = pl;
-        this._syncSidebarPlaylist(pl);
-        this.recommendations = this.recommendations.filter(r => r.url !== rec.url);
-        this.showToast('Track added');
-      } catch (e) {
-        this.showToast(e.message, true);
-      }
+      this.addUrl = rec.url;
+      await this.addTrack();
+      this.recommendations = this.recommendations.filter(r => r.url !== rec.url);
     },
 
     previewRec(rec) {
