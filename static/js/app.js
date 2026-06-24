@@ -53,6 +53,12 @@ function tunino() {
         this.showToast('Playback error — the audio URL may have expired. Try clicking play again.', true);
         this.playing = false;
       });
+      document.addEventListener('keydown', (e) => {
+        if (e.code === 'Space' && !['INPUT', 'TEXTAREA', 'BUTTON'].includes(e.target.tagName)) {
+          e.preventDefault();
+          this.togglePlay();
+        }
+      });
       await this.loadPlaylists();
     },
 
@@ -95,7 +101,8 @@ function tunino() {
       this.recsLoading = true;
       this.recommendations = [];
       try {
-        this.recommendations = await this.api('GET', `/playlists/${this.activePlaylist.id}/recommendations`);
+        const tid = this.currentTrack?.id ? `?track_id=${this.currentTrack.id}` : '';
+        this.recommendations = await this.api('GET', `/playlists/${this.activePlaylist.id}/recommendations${tid}`);
         this.recsLoaded = true;
       } catch (e) {
         this.showToast('Could not load recommendations.', true);

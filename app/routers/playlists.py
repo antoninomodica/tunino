@@ -143,7 +143,11 @@ def remove_track(playlist_id: int, item_id: int, db: Session = Depends(get_db)):
 
 
 @router.get("/{playlist_id}/recommendations")
-async def get_recommendations(playlist_id: int, db: Session = Depends(get_db)):
+async def get_recommendations(
+    playlist_id: int,
+    track_id: int | None = None,
+    db: Session = Depends(get_db),
+):
     pl = db.get(Playlist, playlist_id)
     if not pl:
         raise HTTPException(404, "Playlist not found")
@@ -151,9 +155,14 @@ async def get_recommendations(playlist_id: int, db: Session = Depends(get_db)):
     # Collect unique album-level bandcamp URLs already in the playlist
     existing_urls = {item.track.bandcamp_url for item in pl.items}
 
-    # Pick up to 3 distinct source URLs to scrape (prefer album pages for richer recs)
+    # Build source list: currently playing track first, then others up to 3 total
     source_urls = []
     seen = set()
+    if track_id:
+        playing_track = db.get(Track, track_id)
+        if playing_track and playing_track.bandcamp_url not in seen:
+            seen.add(playing_track.bandcamp_url)
+            source_urls.append(playing_track.bandcamp_url)
     for item in pl.items:
         u = item.track.bandcamp_url
         if u not in seen:
