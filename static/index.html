@@ -94,8 +94,10 @@
               <h1 @click="openEdit()" :title="'Click to edit'" x-text="activePlaylist.name"></h1>
               <p class="header-meta" x-text="activePlaylist.items.length + ' tracks'"></p>
               <div class="header-actions">
-                <button class="btn-icon play-main" @click="playItem(currentItemIndex ?? 0)" title="Play all">
-                  <span x-text="playing && currentTrack ? '⏸' : '▶'"></span>
+                <button class="btn-icon play-main"
+                  @click="(playing && currentTrack && activePlaylist.items.some(i => i.track.id === currentTrack.id)) ? togglePlay() : playItem(currentItemIndex != null && activePlaylist.items[currentItemIndex] ? currentItemIndex : 0)"
+                  title="Play / Pause">
+                  <span x-text="playing && currentTrack && activePlaylist.items.some(i => i.track.id === currentTrack.id) ? '⏸' : '▶'"></span>
                 </button>
                 <button class="btn btn-ghost" @click="openEdit()">✏ Edit</button>
                 <button class="btn btn-ghost" style="color:var(--danger)" @click="deletePlaylist()">🗑</button>
@@ -158,6 +160,33 @@
                 <span class="track-duration" x-text="formatTime(item.track.duration)"></span>
                 <button class="track-remove" @click.stop="removeTrack(item)" title="Remove">✕</button>
               </div>
+            </template>
+          </div>
+        <!-- Recommendations -->
+          <div class="recommendations-area">
+            <button class="btn btn-ghost rec-trigger" @click="loadRecommendations()" :disabled="recsLoading">
+              <template x-if="recsLoading"><span class="spinner" style="width:14px;height:14px;border-width:2px"></span></template>
+              <template x-if="!recsLoading"><span>✦ Discover similar releases</span></template>
+            </button>
+
+            <template x-if="recommendations.length > 0">
+              <div class="rec-list">
+                <p class="rec-heading">You might also like:</p>
+                <template x-for="rec in recommendations" :key="rec.url">
+                  <div class="rec-item">
+                    <img class="rec-art" :src="rec.artwork_url" :alt="rec.title" onerror="this.style.display='none'" />
+                    <div class="rec-info">
+                      <div class="rec-title" x-text="rec.title"></div>
+                      <div class="rec-artist" x-text="rec.artist"></div>
+                    </div>
+                    <button class="btn btn-primary rec-add" @click="addRecommendation(rec)" title="Add to playlist">+</button>
+                  </div>
+                </template>
+              </div>
+            </template>
+
+            <template x-if="recsLoaded && recommendations.length === 0 && !recsLoading">
+              <p style="font-size:0.8rem;color:var(--text-muted);text-align:center;padding:8px 0">No recommendations found for this playlist.</p>
             </template>
           </div>
         </div>

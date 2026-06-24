@@ -140,6 +140,50 @@ async def scrape_bandcamp_url(url: str) -> list[dict]:
     return tracks
 
 
+async def scrape_recommendations(bandcamp_url: str) -> list[dict]:
+    """
+    Scrape the 'If you like X, you may also like:' section from a Bandcamp page.
+    Returns a list of dicts with keys: title, artist, artwork_url, url.
+    """
+    async with httpx.AsyncClient(follow_redirects=True, timeout=30) as client:
+        resp = await client.get(bandcamp_url, headers=HEADERS)
+        resp.raise_for_status()
+
+    soup = BeautifulSoup(resp.text, "html.parser")
+
+    results = []
+    seen_urls = set()
+
+    rec_section = soup.find(id="recommended-album-group") or soup.find("ol", class_="rec-list")
+    if not rec_section:
+        return results
+
+    for item in rec_section.find_all("li", class_="rec-item"):
+        link = item.find("a", href=True)
+        if not link:
+            continue
+        url = link["href"]
+        if not url.startswith("http"):
+            parsed = urlparse(bandcamp_url)
+            url = f"{parsed.scheme}://{parsed.netloc}{url}"
+        if url in seen_urls:
+            continue
+        seen_urls.add(url)
+
+        img = item.find("img")
+        artwork_url = img.get("src", "") if img else ""
+
+        title_el = item.find(class_="title") or item.find(class_="rec-title")
+        artist_el = item.find(class_="artist") or item.find(class_="rec-artist")
+        title = title_el.get_text(strip=True) if title_el else ""
+        artist = artist_el.get_text(strip=True).lstrip("by").strip() if artist_el else ""
+
+        if title:
+            results.append({"title": title, "artist": artist, "artwork_url": artwork_url, "url": url})
+
+    return results
+
+
 async def refresh_audio_url(bandcamp_url: str, track_title: str) -> str | None:
     """Re-scrape a track page and return the fresh audio URL, matched by title."""
     try:

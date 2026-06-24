@@ -31,6 +31,9 @@ function tunino() {
 
     sidebarOpen: false,
     dragSrcIndex: null,
+    recommendations: [],
+    recsLoading: false,
+    recsLoaded: false,
 
     /* ── Init ── */
     async init() {
@@ -83,6 +86,28 @@ function tunino() {
       this.activePlaylist = await this.api('GET', `/playlists/${pl.id}`);
       this.sidebarOpen = false;
       this._updateHeaderColor();
+      this.recommendations = [];
+      this.recsLoaded = false;
+    },
+
+    async loadRecommendations() {
+      if (!this.activePlaylist || this.recsLoading) return;
+      this.recsLoading = true;
+      this.recommendations = [];
+      try {
+        this.recommendations = await this.api('GET', `/playlists/${this.activePlaylist.id}/recommendations`);
+        this.recsLoaded = true;
+      } catch (e) {
+        this.showToast('Could not load recommendations.', true);
+      } finally {
+        this.recsLoading = false;
+      }
+    },
+
+    async addRecommendation(rec) {
+      this.addUrl = rec.url;
+      await this.addTrack();
+      this.recommendations = this.recommendations.filter(r => r.url !== rec.url);
     },
 
     async createPlaylist() {

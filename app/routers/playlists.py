@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from ..database import get_db
 from ..models import Playlist, Track, PlaylistItem
 from ..schemas import PlaylistOut, PlaylistCreate, PlaylistUpdate, AddTrackRequest, ReorderRequest
-from ..scraper import scrape_bandcamp_url
+from ..scraper import scrape_bandcamp_url, scrape_recommendations
 
 router = APIRouter(prefix="/api/playlists", tags=["playlists"])
 
@@ -140,6 +140,42 @@ def remove_track(playlist_id: int, item_id: int, db: Session = Depends(get_db)):
     pl = db.get(Playlist, playlist_id)
     db.refresh(pl)
     return pl
+
+
+@router.get("/{playlist_id}/recommendations")
+async def get_recommendations(playlist_id: int, db: Session = Depends(get_db)):
+    pl = db.get(Playlist, playlist_id)
+    if not pl:
+        raise HTTPException(404, "Playlist not found")
+
+    # Collect unique album-level bandcamp URLs already in the playlist
+    existing_urls = {item.track.bandcamp_url for item in pl.items}
+
+    # Pick up to 3 distinct source URLs to scrape (prefer album pages for richer recs)
+    source_urls = []
+    seen = set()
+    for item in pl.items:
+        u = item.track.bandcamp_url
+        if u not in seen:
+            seen.add(u)
+            source_urls.append(u)
+        if len(source_urls) >= 3:
+            break
+
+    # Gather and deduplicate recommendations
+    all_recs: list[dict] = []
+    seen_rec_urls: set[str] = set()
+    for url in source_urls:
+        try:
+            recs = await scrape_recommendations(url)
+        except Exception:
+            continue
+        for r in recs:
+            if r["url"] not in seen_rec_urls and r["url"] not in existing_urls:
+                seen_rec_urls.add(r["url"])
+                all_recs.append(r)
+
+    return all_recs
 
 
 @router.put("/{playlist_id}/reorder", response_model=PlaylistOut)
