@@ -150,22 +150,21 @@ async def scrape_recommendations(bandcamp_url: str) -> list[dict]:
         resp.raise_for_status()
 
     soup = BeautifulSoup(resp.text, "html.parser")
-
     results = []
     seen_urls = set()
 
-    rec_section = soup.find(id="recommended-album-group") or soup.find("ol", class_="rec-list")
-    if not rec_section:
-        return results
+    for item in soup.find_all("li", class_="recommended-album"):
+        title = item.get("data-albumtitle", "").strip()
+        artist = item.get("data-artist", "").strip()
+        if not title:
+            continue
 
-    for item in rec_section.find_all("li", class_="rec-item"):
         link = item.find("a", href=True)
         if not link:
             continue
-        url = link["href"]
-        if not url.startswith("http"):
-            parsed = urlparse(bandcamp_url)
-            url = f"{parsed.scheme}://{parsed.netloc}{url}"
+        # Strip tracking query params from the URL
+        raw_url = link["href"]
+        url = raw_url.split("?")[0]
         if url in seen_urls:
             continue
         seen_urls.add(url)
@@ -173,13 +172,7 @@ async def scrape_recommendations(bandcamp_url: str) -> list[dict]:
         img = item.find("img")
         artwork_url = img.get("src", "") if img else ""
 
-        title_el = item.find(class_="title") or item.find(class_="rec-title")
-        artist_el = item.find(class_="artist") or item.find(class_="rec-artist")
-        title = title_el.get_text(strip=True) if title_el else ""
-        artist = artist_el.get_text(strip=True).lstrip("by").strip() if artist_el else ""
-
-        if title:
-            results.append({"title": title, "artist": artist, "artwork_url": artwork_url, "url": url})
+        results.append({"title": title, "artist": artist, "artwork_url": artwork_url, "url": url})
 
     return results
 
