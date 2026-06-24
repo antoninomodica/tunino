@@ -180,6 +180,21 @@ def remove_track(playlist_id: int, item_id: int, db: Session = Depends(get_db)):
     return pl
 
 
+@router.post("/{playlist_id}/analyse-bpm", status_code=202)
+async def analyse_playlist_bpm(playlist_id: int, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
+    pl = db.get(Playlist, playlist_id)
+    if not pl:
+        raise HTTPException(404, "Playlist not found")
+    queued = 0
+    for item in pl.items:
+        if item.track.bpm_status in ("unanalysed", "failed"):
+            item.track.bpm_status = "pending"
+            background_tasks.add_task(analyse_track_bpm, item.track.id, item.track.audio_url)
+            queued += 1
+    db.commit()
+    return {"queued": queued}
+
+
 @router.get("/{playlist_id}/recommendations")
 async def get_recommendations(
     playlist_id: int,

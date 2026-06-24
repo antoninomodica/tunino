@@ -9,13 +9,15 @@ from .routers import playlists, tracks
 
 Base.metadata.create_all(bind=engine)
 
-# Add BPM columns to existing databases that predate this feature
+# Add BPM columns to existing databases that predate this feature.
+# Existing rows get bpm_status='unanalysed' so they don't show a
+# pending spinner — the user can trigger analysis manually.
 with engine.connect() as conn:
     existing = {row[1] for row in conn.execute(text("PRAGMA table_info(tracks)"))}
     if "bpm" not in existing:
         conn.execute(text("ALTER TABLE tracks ADD COLUMN bpm REAL"))
     if "bpm_status" not in existing:
-        conn.execute(text("ALTER TABLE tracks ADD COLUMN bpm_status TEXT DEFAULT 'pending'"))
+        conn.execute(text("ALTER TABLE tracks ADD COLUMN bpm_status TEXT DEFAULT 'unanalysed'"))
     conn.commit()
 
 app = FastAPI(title="Tunino")

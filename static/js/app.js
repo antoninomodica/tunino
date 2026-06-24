@@ -98,6 +98,22 @@ function tunino() {
       this.recsLoaded = false;
     },
 
+    async analyseBpm() {
+      if (!this.activePlaylist) return;
+      const { queued } = await this.api('POST', `/playlists/${this.activePlaylist.id}/analyse-bpm`);
+      if (queued === 0) {
+        this.showToast('All tracks already analysed');
+        return;
+      }
+      // Mark tracks as pending locally so the spinner appears immediately
+      for (const item of this.activePlaylist.items) {
+        if (item.track.bpm_status === 'unanalysed' || item.track.bpm_status === 'failed') {
+          item.track.bpm_status = 'pending';
+        }
+      }
+      this.showToast(`Queued BPM analysis for ${queued} track${queued !== 1 ? 's' : ''}`);
+    },
+
     async loadRecommendations() {
       if (!this.activePlaylist || this.recsLoading) return;
       this.recsLoading = true;

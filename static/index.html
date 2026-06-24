@@ -100,6 +100,7 @@
                   <span x-text="playing && currentTrack && activePlaylist.items.some(i => i.track.id === currentTrack.id) ? '⏸' : '▶'"></span>
                 </button>
                 <button class="btn btn-ghost" @click="openEdit()">✏ Edit</button>
+                <button class="btn btn-ghost" @click="analyseBpm()" title="Detect BPM for all tracks">♩ BPM</button>
                 <button class="btn btn-ghost" style="color:var(--danger)" @click="deletePlaylist()">🗑</button>
               </div>
             </div>
@@ -158,8 +159,9 @@
                   <div class="track-artist" x-text="item.track.artist + (item.track.album ? ' · ' + item.track.album : '')"></div>
                 </div>
                 <span class="track-bpm"
-                  :class="{ 'bpm-pending': item.track.bpm_status === 'pending', 'bpm-failed': item.track.bpm_status === 'failed' }"
-                  :title="item.track.bpm_status === 'pending' ? 'Analysing BPM…' : item.track.bpm_status === 'failed' ? 'BPM analysis failed' : item.track.bpm + ' BPM'">
+                  :class="{ 'bpm-pending': item.track.bpm_status === 'pending' }"
+                  x-show="item.track.bpm_status !== 'unanalysed' && item.track.bpm_status !== 'failed'"
+                  :title="item.track.bpm_status === 'pending' ? 'Analysing BPM…' : Math.round(item.track.bpm) + ' BPM'">
                   <template x-if="item.track.bpm_status === 'done'">
                     <span x-text="Math.round(item.track.bpm) + ' BPM'"></span>
                   </template>
