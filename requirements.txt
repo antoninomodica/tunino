@@ -6,3 +6,6 @@ beautifulsoup4==4.12.3
 python-multipart==0.0.12
 aiofiles==24.1.0
 Pillow==10.4.0
+librosa==0.10.2
+soundfile==0.12.1
+numpy>=1.24

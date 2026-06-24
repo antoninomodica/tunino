@@ -54,6 +54,7 @@ function tunino() {
         this.showToast('Playback error — the audio URL may have expired. Try clicking play again.', true);
         this.playing = false;
       });
+      this._startBpmPoller();
       document.addEventListener('keydown', (e) => {
         if (e.code === 'Space' && !['INPUT', 'TEXTAREA', 'BUTTON'].includes(e.target.tagName)) {
           e.preventDefault();
@@ -331,6 +332,24 @@ function tunino() {
       const pct = this.duration ? (this.currentTime / this.duration) * 100 : 0;
       const bar = document.getElementById('progress-bar');
       if (bar) bar.style.setProperty('--pct', pct + '%');
+    },
+
+    _startBpmPoller() {
+      setInterval(async () => {
+        if (!this.activePlaylist) return;
+        const pending = this.activePlaylist.items.filter(i => i.track.bpm_status === 'pending');
+        if (!pending.length) return;
+        // Refresh the full playlist to pick up any newly completed BPM values
+        const pl = await this.api('GET', `/playlists/${this.activePlaylist.id}`);
+        // Merge only BPM fields to avoid disrupting playback state
+        for (const item of pl.items) {
+          const local = this.activePlaylist.items.find(i => i.id === item.id);
+          if (local && local.track.bpm_status !== item.track.bpm_status) {
+            local.track.bpm = item.track.bpm;
+            local.track.bpm_status = item.track.bpm_status;
+          }
+        }
+      }, 5000);
     },
 
     showToast(msg, error = false) {

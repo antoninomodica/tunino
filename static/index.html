@@ -157,6 +157,16 @@
                   <div class="track-title" x-text="item.track.title"></div>
                   <div class="track-artist" x-text="item.track.artist + (item.track.album ? ' · ' + item.track.album : '')"></div>
                 </div>
+                <span class="track-bpm"
+                  :class="{ 'bpm-pending': item.track.bpm_status === 'pending', 'bpm-failed': item.track.bpm_status === 'failed' }"
+                  :title="item.track.bpm_status === 'pending' ? 'Analysing BPM…' : item.track.bpm_status === 'failed' ? 'BPM analysis failed' : item.track.bpm + ' BPM'">
+                  <template x-if="item.track.bpm_status === 'done'">
+                    <span x-text="Math.round(item.track.bpm) + ' BPM'"></span>
+                  </template>
+                  <template x-if="item.track.bpm_status === 'pending'">
+                    <span>… BPM</span>
+                  </template>
+                </span>
                 <span class="track-duration" x-text="formatTime(item.track.duration)"></span>
                 <button class="track-remove" @click.stop="removeTrack(item)" title="Remove">✕</button>
               </div>

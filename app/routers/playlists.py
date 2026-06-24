@@ -3,13 +3,14 @@ import uuid
 import aiofiles
 from pathlib import Path
 from datetime import datetime
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, UploadFile, File, Form
 from sqlalchemy.orm import Session
 
 from ..database import get_db
 from ..models import Playlist, Track, PlaylistItem
 from ..schemas import PlaylistOut, PlaylistCreate, PlaylistUpdate, AddTrackRequest, AddSingleTrackRequest, ReorderRequest
 from ..scraper import scrape_bandcamp_url, scrape_recommendations
+from ..bpm import analyse_track_bpm
 
 router = APIRouter(prefix="/api/playlists", tags=["playlists"])
 
@@ -96,7 +97,7 @@ def delete_playlist(playlist_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("/{playlist_id}/tracks", response_model=PlaylistOut)
-async def add_tracks(playlist_id: int, body: AddTrackRequest, db: Session = Depends(get_db)):
+async def add_tracks(playlist_id: int, body: AddTrackRequest, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     pl = db.get(Playlist, playlist_id)
     if not pl:
         raise HTTPException(404, "Playlist not found")
@@ -123,6 +124,7 @@ async def add_tracks(playlist_id: int, body: AddTrackRequest, db: Session = Depe
         db.flush()
         item = PlaylistItem(playlist_id=playlist_id, track_id=track.id, position=next_pos)
         db.add(item)
+        background_tasks.add_task(analyse_track_bpm, track.id, t_data["audio_url"])
         next_pos += 1
 
     db.commit()

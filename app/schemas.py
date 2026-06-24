@@ -12,6 +12,8 @@ class TrackOut(BaseModel):
     artwork_url: str
     duration: float
     audio_url_fetched_at: datetime
+    bpm: Optional[float] = None
+    bpm_status: str = "pending"
 
     model_config = {"from_attributes": True}
 

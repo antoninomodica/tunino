@@ -390,6 +390,19 @@ input[type="range"].progress-bar { background: linear-gradient(to right, var(--a
   .playlist-header-info h1 { font-size: 1.2rem; }
 }
 
+/* ── BPM badge ── */
+.track-bpm {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  color: var(--accent);
+  min-width: 52px;
+  text-align: right;
+  flex-shrink: 0;
+}
+.track-bpm.bpm-pending { color: var(--text-muted); font-weight: 400; }
+.track-bpm.bpm-failed  { display: none; }
+
 /* ── Recommendations ── */
 .recommendations-area {
   padding: 8px 16px 80px;

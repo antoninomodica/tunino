@@ -3,10 +3,20 @@ from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 
+from sqlalchemy import text
 from .database import engine, Base
 from .routers import playlists, tracks
 
 Base.metadata.create_all(bind=engine)
+
+# Add BPM columns to existing databases that predate this feature
+with engine.connect() as conn:
+    existing = {row[1] for row in conn.execute(text("PRAGMA table_info(tracks)"))}
+    if "bpm" not in existing:
+        conn.execute(text("ALTER TABLE tracks ADD COLUMN bpm REAL"))
+    if "bpm_status" not in existing:
+        conn.execute(text("ALTER TABLE tracks ADD COLUMN bpm_status TEXT DEFAULT 'pending'"))
+    conn.commit()
 
 app = FastAPI(title="Tunino")
 

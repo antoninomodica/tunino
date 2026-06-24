@@ -33,6 +33,8 @@ class Track(Base):
     audio_url = Column(String, nullable=False)
     audio_url_fetched_at = Column(DateTime, default=datetime.utcnow)
     duration = Column(Float, default=0)
+    bpm = Column(Float, nullable=True)
+    bpm_status = Column(String, default="pending")  # pending | done | failed
 
     playlist_items = relationship("PlaylistItem", back_populates="track")
 
