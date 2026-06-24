@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from ..database import get_db
 from ..models import Playlist, Track, PlaylistItem
-from ..schemas import PlaylistOut, PlaylistCreate, PlaylistUpdate, AddTrackRequest, ReorderRequest
+from ..schemas import PlaylistOut, PlaylistCreate, PlaylistUpdate, AddTrackRequest, AddSingleTrackRequest, ReorderRequest
 from ..scraper import scrape_bandcamp_url, scrape_recommendations
 
 router = APIRouter(prefix="/api/playlists", tags=["playlists"])
@@ -125,6 +125,42 @@ async def add_tracks(playlist_id: int, body: AddTrackRequest, db: Session = Depe
         db.add(item)
         next_pos += 1
 
+    db.commit()
+    db.refresh(pl)
+    return pl
+
+
+@router.post("/{playlist_id}/tracks/single", response_model=PlaylistOut)
+async def add_single_track(playlist_id: int, body: AddSingleTrackRequest, db: Session = Depends(get_db)):
+    pl = db.get(Playlist, playlist_id)
+    if not pl:
+        raise HTTPException(404, "Playlist not found")
+
+    try:
+        scraped = await scrape_bandcamp_url(body.url)
+    except Exception as e:
+        raise HTTPException(400, str(e))
+
+    # Match by track ID present in the audio URL (e.g. track_id=211158662), fall back to first
+    match = next(
+        (t for t in scraped if body.bandcamp_track_id and body.bandcamp_track_id in t.get("audio_url", "")),
+        scraped[0],
+    )
+
+    next_pos = max((item.position for item in pl.items), default=-1) + 1
+    track = Track(
+        bandcamp_url=match["bandcamp_url"],
+        title=match["title"],
+        artist=match["artist"],
+        album=match["album"],
+        artwork_url=match["artwork_url"],
+        audio_url=match["audio_url"],
+        audio_url_fetched_at=datetime.utcnow(),
+        duration=match["duration"],
+    )
+    db.add(track)
+    db.flush()
+    db.add(PlaylistItem(playlist_id=playlist_id, track_id=track.id, position=next_pos))
     db.commit()
     db.refresh(pl)
     return pl

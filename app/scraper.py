@@ -181,7 +181,9 @@ async def scrape_recommendations(bandcamp_url: str) -> list[dict]:
             except (json.JSONDecodeError, AttributeError):
                 pass
 
-        results.append({"title": title, "artist": artist, "artwork_url": artwork_url, "url": url, "audio_url": audio_url})
+        track_id = item.get("data-trackid", "")
+
+        results.append({"title": title, "artist": artist, "artwork_url": artwork_url, "url": url, "audio_url": audio_url, "bandcamp_track_id": track_id})
 
     return results
 

@@ -48,6 +48,10 @@ class PlaylistUpdate(BaseModel):
 class AddTrackRequest(BaseModel):
     url: str
 
+class AddSingleTrackRequest(BaseModel):
+    url: str
+    bandcamp_track_id: str
+
 
 class ReorderRequest(BaseModel):
     item_ids: list[int]
