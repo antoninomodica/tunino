@@ -179,6 +179,10 @@
                       <div class="rec-title" x-text="rec.title"></div>
                       <div class="rec-artist" x-text="rec.artist"></div>
                     </div>
+                    <button class="btn btn-ghost rec-play" x-show="rec.audio_url"
+                      @click.stop="previewRec(rec)"
+                      :title="previewingUrl === rec.audio_url && playing ? 'Pause preview' : 'Preview'"
+                      x-text="previewingUrl === rec.audio_url && playing ? '⏸' : '▶'"></button>
                     <button class="btn btn-primary rec-add" @click="addRecommendation(rec)" title="Add to playlist">+</button>
                   </div>
                 </template>

@@ -34,6 +34,7 @@ function tunino() {
     recommendations: [],
     recsLoading: false,
     recsLoaded: false,
+    previewingUrl: null,
 
     /* ── Init ── */
     async init() {
@@ -112,9 +113,30 @@ function tunino() {
     },
 
     async addRecommendation(rec) {
+      this.stopPreview();
       this.addUrl = rec.url;
       await this.addTrack();
       this.recommendations = this.recommendations.filter(r => r.url !== rec.url);
+    },
+
+    previewRec(rec) {
+      if (this.previewingUrl === rec.audio_url) {
+        this.playing ? this.audio.pause() : this.audio.play();
+        return;
+      }
+      this.previewingUrl = rec.audio_url;
+      this.currentTrack = { title: rec.title, artist: rec.artist, artwork_url: rec.artwork_url };
+      this.currentItemIndex = null;
+      this.audio.src = rec.audio_url;
+      this.audio.currentTime = 0;
+      this.audio.play().catch(() => this.showToast('Could not preview track.', true));
+      this._updateMediaSession();
+    },
+
+    stopPreview() {
+      if (!this.previewingUrl) return;
+      this.audio.pause();
+      this.previewingUrl = null;
     },
 
     async createPlaylist() {
@@ -203,6 +225,7 @@ function tunino() {
 
       // Fetch fresh stream URL
       const data = await fetch(`/api/tracks/${item.track.id}/stream-url`).then(r => r.json());
+      this.previewingUrl = null;
       this.audio.src = data.url;
       this.audio.currentTime = 0;
       this.audio.play().catch(() => {

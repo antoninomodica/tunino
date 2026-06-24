@@ -172,7 +172,16 @@ async def scrape_recommendations(bandcamp_url: str) -> list[dict]:
         img = item.find("img")
         artwork_url = img.get("src", "") if img else ""
 
-        results.append({"title": title, "artist": artist, "artwork_url": artwork_url, "url": url})
+        audio_url = ""
+        raw_audio = item.get("data-audiourl", "")
+        if raw_audio:
+            try:
+                audio_data = json.loads(raw_audio)
+                audio_url = audio_data.get("mp3-128") or audio_data.get("mp3-v0") or ""
+            except (json.JSONDecodeError, AttributeError):
+                pass
+
+        results.append({"title": title, "artist": artist, "artwork_url": artwork_url, "url": url, "audio_url": audio_url})
 
     return results
 
