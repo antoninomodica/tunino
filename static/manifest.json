@@ -1,0 +1,17 @@
+{
+  "name": "Tunino",
+  "short_name": "Tunino",
+  "description": "Your Bandcamp music player",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f0f14",
+  "theme_color": "#7c3aed",
+  "icons": [
+    {
+      "src": "/static/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

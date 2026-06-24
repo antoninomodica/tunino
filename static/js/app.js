@@ -176,6 +176,29 @@ function tunino() {
       this.audio.play().catch(() => {
         this.showToast('Could not start playback. The URL may have expired.', true);
       });
+      this._updateMediaSession();
+    },
+
+    _updateMediaSession() {
+      if (!('mediaSession' in navigator)) return;
+      const t = this.currentTrack;
+      if (!t) return;
+      const artwork = t.artwork_url
+        ? [{ src: t.artwork_url, sizes: '300x300', type: 'image/jpeg' }]
+        : [];
+      navigator.mediaSession.metadata = new MediaMetadata({
+        title: t.title || 'Unknown',
+        artist: t.artist || '',
+        album: t.album || '',
+        artwork,
+      });
+      navigator.mediaSession.setActionHandler('play',     () => this.audio.play());
+      navigator.mediaSession.setActionHandler('pause',    () => this.audio.pause());
+      navigator.mediaSession.setActionHandler('previoustrack', () => this.prev());
+      navigator.mediaSession.setActionHandler('nexttrack',     () => this.next());
+      navigator.mediaSession.setActionHandler('seekto', (d) => {
+        this.audio.currentTime = d.seekTime;
+      });
     },
 
     togglePlay() {
