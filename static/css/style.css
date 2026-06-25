@@ -251,6 +251,14 @@ input[type="color"] { width: 44px; height: 36px; padding: 2px 4px; cursor: point
 .track-row:hover .track-remove { opacity: 1; }
 .track-remove:hover { color: var(--danger); }
 
+.track-link {
+  opacity: 0; transition: opacity 0.15s;
+  color: var(--text-muted); font-size: 0.9rem; padding: 4px;
+  text-decoration: none; flex-shrink: 0;
+}
+.track-row:hover .track-link { opacity: 1; }
+.track-link:hover { color: var(--accent); }
+
 /* drag handle */
 .drag-handle {
   cursor: grab; color: var(--text-muted); font-size: 1rem;

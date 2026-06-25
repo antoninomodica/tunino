@@ -120,10 +120,22 @@ function tunino() {
     },
 
     async addRecommendation(rec) {
-      this.stopPreview();
+      const wasPreviewingThis = this.previewingUrl === rec.audio_url;
+      if (!wasPreviewingThis) this.stopPreview();
       this.addUrl = rec.url;
       await this.addTrack();
       this.recommendations = this.recommendations.filter(r => r.url !== rec.url);
+      if (wasPreviewingThis) {
+        // Re-anchor the still-playing audio to the newly added playlist item
+        const items = this.activePlaylist.items;
+        const idx = [...items].reverse().findIndex(i => i.track.bandcamp_url === rec.url);
+        if (idx !== -1) {
+          const realIdx = items.length - 1 - idx;
+          this.currentItemIndex = realIdx;
+          this.currentTrack = items[realIdx].track;
+          this.previewingUrl = null;
+        }
+      }
     },
 
     previewRec(rec) {
@@ -191,6 +203,12 @@ function tunino() {
       const pl = await r.json();
       this.activePlaylist = pl;
       this._syncSidebarPlaylist(pl);
+    },
+
+    async copyPlaylistLinks() {
+      const urls = this.activePlaylist.items.map(i => i.track.bandcamp_url).join('\n');
+      await navigator.clipboard.writeText(urls);
+      this.showToast('Links copied to clipboard');
     },
 
     /* ── Tracks ── */

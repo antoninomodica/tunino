@@ -99,6 +99,7 @@
                   title="Play / Pause">
                   <span x-text="playing && currentTrack && activePlaylist.items.some(i => i.track.id === currentTrack.id) ? '⏸' : '▶'"></span>
                 </button>
+                <button class="btn btn-ghost" @click="copyPlaylistLinks()" title="Copy all track links">⎘ Copy links</button>
                 <button class="btn btn-ghost" @click="openEdit()">✏ Edit</button>
                 <button class="btn btn-ghost" style="color:var(--danger)" @click="deletePlaylist()">🗑</button>
               </div>
@@ -158,6 +159,7 @@
                   <div class="track-artist" x-text="item.track.artist + (item.track.album ? ' · ' + item.track.album : '')"></div>
                 </div>
                 <span class="track-duration" x-text="formatTime(item.track.duration)"></span>
+                <a class="track-link" :href="item.track.bandcamp_url" target="_blank" rel="noopener" @click.stop title="Open on Bandcamp">↗</a>
                 <button class="track-remove" @click.stop="removeTrack(item)" title="Remove">✕</button>
               </div>
             </template>
