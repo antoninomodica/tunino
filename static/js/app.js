@@ -207,7 +207,18 @@ function tunino() {
 
     async copyPlaylistLinks() {
       const urls = this.activePlaylist.items.map(i => i.track.bandcamp_url).join('\n');
-      await navigator.clipboard.writeText(urls);
+      try {
+        await navigator.clipboard.writeText(urls);
+      } catch {
+        // Fallback for non-secure contexts (HTTP on local network)
+        const ta = document.createElement('textarea');
+        ta.value = urls;
+        ta.style.cssText = 'position:fixed;opacity:0';
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+      }
       this.showToast('Links copied to clipboard');
     },
 
