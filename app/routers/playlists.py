@@ -1,9 +1,11 @@
 import os
 import uuid
+import random
 import aiofiles
 from pathlib import Path
 from datetime import datetime
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
+from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File, Form
+from typing import Annotated
 from sqlalchemy.orm import Session
 
 from ..database import get_db
@@ -182,6 +184,7 @@ def remove_track(playlist_id: int, item_id: int, db: Session = Depends(get_db)):
 async def get_recommendations(
     playlist_id: int,
     track_id: int | None = None,
+    exclude: Annotated[list[str], Query()] = [],
     db: Session = Depends(get_db),
 ):
     pl = db.get(Playlist, playlist_id)
@@ -190,24 +193,46 @@ async def get_recommendations(
 
     # Collect unique album-level bandcamp URLs already in the playlist
     existing_urls = {item.track.bandcamp_url for item in pl.items}
+    excluded_urls = existing_urls | set(exclude)
 
-    # Build source list: currently playing track first, then others up to 3 total
-    source_urls = []
+    # Build weighted candidate pool: recently-added tracks get higher weight.
+    # Items are stored in position order; we reverse to give recency priority.
+    playlist_items = list(pl.items)
+    n = len(playlist_items)
+    # Weight = position from end (most-recent = n, oldest = 1)
+    weights = [i + 1 for i in range(n)]
+
     seen = set()
+    source_urls = []
+
+    # Always seed with the currently-playing track first
     if track_id:
         playing_track = db.get(Track, track_id)
-        if playing_track and playing_track.bandcamp_url not in seen:
+        if playing_track:
             seen.add(playing_track.bandcamp_url)
             source_urls.append(playing_track.bandcamp_url)
-    for item in pl.items:
-        u = item.track.bandcamp_url
-        if u not in seen:
-            seen.add(u)
-            source_urls.append(u)
-        if len(source_urls) >= 3:
-            break
 
-    # Gather and deduplicate recommendations
+    # Always include the most-recently added track (last position) as a seed
+    if playlist_items:
+        most_recent_url = playlist_items[-1].track.bandcamp_url
+        if most_recent_url not in seen:
+            seen.add(most_recent_url)
+            source_urls.append(most_recent_url)
+
+    # Fill remaining slots via weighted-random sampling from the full playlist
+    remaining = [item for item in playlist_items if item.track.bandcamp_url not in seen]
+    remaining_weights = [weights[playlist_items.index(item)] for item in remaining]
+    while len(source_urls) < 5 and remaining:
+        picked = random.choices(remaining, weights=remaining_weights, k=1)[0]
+        idx = remaining.index(picked)
+        remaining.pop(idx)
+        remaining_weights.pop(idx)
+        url = picked.track.bandcamp_url
+        if url not in seen:
+            seen.add(url)
+            source_urls.append(url)
+
+    # Gather and deduplicate recommendations, filtering already-known URLs
     all_recs: list[dict] = []
     seen_rec_urls: set[str] = set()
     for url in source_urls:
@@ -216,7 +241,7 @@ async def get_recommendations(
         except Exception:
             continue
         for r in recs:
-            if r["url"] not in seen_rec_urls and r["url"] not in existing_urls:
+            if r["url"] not in seen_rec_urls and r["url"] not in excluded_urls:
                 seen_rec_urls.add(r["url"])
                 all_recs.append(r)
 

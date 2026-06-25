@@ -32,6 +32,7 @@ function tunino() {
     sidebarOpen: false,
     dragSrcIndex: null,
     recommendations: [],
+    seenRecUrls: [],
     recsLoading: false,
     recsLoaded: false,
     previewingUrl: null,
@@ -94,6 +95,7 @@ function tunino() {
       this.sidebarOpen = false;
       this._updateHeaderColor();
       this.recommendations = [];
+      this.seenRecUrls = [];
       this.recsLoaded = false;
     },
 
@@ -102,8 +104,13 @@ function tunino() {
       this.recsLoading = true;
       this.recommendations = [];
       try {
-        const tid = this.currentTrack?.id ? `?track_id=${this.currentTrack.id}` : '';
-        this.recommendations = await this.api('GET', `/playlists/${this.activePlaylist.id}/recommendations${tid}`);
+        const params = new URLSearchParams();
+        if (this.currentTrack?.id) params.set('track_id', this.currentTrack.id);
+        this.seenRecUrls.forEach(u => params.append('exclude', u));
+        const qs = params.toString() ? `?${params.toString()}` : '';
+        const fresh = await this.api('GET', `/playlists/${this.activePlaylist.id}/recommendations${qs}`);
+        this.seenRecUrls = [...new Set([...this.seenRecUrls, ...fresh.map(r => r.url)])];
+        this.recommendations = fresh;
         this.recsLoaded = true;
       } catch (e) {
         this.showToast('Could not load recommendations.', true);
