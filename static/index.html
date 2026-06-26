@@ -41,7 +41,7 @@
           </div>
           <div class="playlist-meta">
             <strong x-text="pl.name"></strong>
-            <span x-text="(pl.items?.length ?? 0) + ' tracks'"></span>
+            <span x-text="(pl.items?.length ?? 0) + ' tracks' + (pl.items?.length ? ' · ' + playlistDuration(pl) : '')"></span>
           </div>
         </div>
       </template>
@@ -92,7 +92,7 @@
             <!-- Info -->
             <div class="playlist-header-info">
               <h1 @click="openEdit()" :title="'Click to edit'" x-text="activePlaylist.name"></h1>
-              <p class="header-meta" x-text="activePlaylist.items.length + ' tracks'"></p>
+              <p class="header-meta" x-text="activePlaylist.items.length + ' tracks' + (activePlaylist.items.length ? ' · ' + playlistDuration(activePlaylist) : '')"></p>
               <div class="header-actions">
                 <button class="btn-icon play-main"
                   @click="(playing && currentTrack && activePlaylist.items.some(i => i.track.id === currentTrack.id)) ? togglePlay() : playItem(currentItemIndex != null && activePlaylist.items[currentItemIndex] ? currentItemIndex : 0)"
