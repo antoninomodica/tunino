@@ -47,6 +47,7 @@ function tunino() {
     recsLoading: false,
     recsLoaded: false,
     previewingUrl: null,
+    recDropdownOpen: null,
 
     /* ── Init ── */
     async init() {
@@ -146,6 +147,24 @@ function tunino() {
           this.currentTrack = items[realIdx].track;
           this.previewingUrl = null;
         }
+      }
+    },
+
+    async addRecommendationToPlaylist(rec, targetPlaylist) {
+      this.recDropdownOpen = null;
+      if (targetPlaylist.id === this.activePlaylist?.id) {
+        await this.addRecommendation(rec);
+        return;
+      }
+      try {
+        const updated = await this.api('POST', `/playlists/${targetPlaylist.id}/tracks/single`, {
+          url: rec.url,
+        });
+        this._syncSidebarPlaylist(updated);
+        this.recommendations = this.recommendations.filter(r => r.url !== rec.url);
+        this.showToast(`Added to "${targetPlaylist.name}"`);
+      } catch (e) {
+        this.showToast('Failed to add track.', true);
       }
     },
 

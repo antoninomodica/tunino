@@ -476,3 +476,83 @@ input[type="range"].progress-bar { background: linear-gradient(to right, var(--a
   font-size: 1rem;
   flex-shrink: 0;
 }
+
+.rec-add-wrap {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.rec-add-split {
+  display: flex;
+}
+
+.rec-add-main {
+  padding: 4px 10px;
+  font-size: 1rem;
+  border-radius: 6px 0 0 6px;
+  border-right: 1px solid var(--accent-dim);
+}
+
+.rec-add-arrow {
+  padding: 4px 7px;
+  font-size: 0.7rem;
+  border-radius: 0 6px 6px 0;
+}
+
+.rec-dropdown {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 4px);
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  min-width: 180px;
+  max-width: 240px;
+  z-index: 100;
+  padding: 6px;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.4);
+}
+
+.rec-dropdown-label {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 2px 8px 6px;
+}
+
+.rec-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  background: none;
+  border: none;
+  color: var(--text);
+  font-size: 0.85rem;
+  padding: 6px 8px;
+  border-radius: 5px;
+  cursor: pointer;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.rec-dropdown-item:hover {
+  background: var(--card-hover);
+}
+
+.rec-dropdown-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.rec-dropdown-active {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  margin-left: auto;
+  flex-shrink: 0;
+}

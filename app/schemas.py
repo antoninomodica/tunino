@@ -50,7 +50,7 @@ class AddTrackRequest(BaseModel):
 
 class AddSingleTrackRequest(BaseModel):
     url: str
-    bandcamp_track_id: str
+    bandcamp_track_id: str | None = None
 
 
 class ReorderRequest(BaseModel):

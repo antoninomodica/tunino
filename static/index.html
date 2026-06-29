@@ -185,7 +185,21 @@
                       @click.stop="previewRec(rec)"
                       :title="previewingUrl === rec.audio_url && playing ? 'Pause preview' : 'Preview'"
                       x-text="previewingUrl === rec.audio_url && playing ? '⏸' : '▶'"></button>
-                    <button class="btn btn-primary rec-add" @click="addRecommendation(rec)" title="Add to playlist">+</button>
+                    <div class="rec-add-wrap" @click.outside="recDropdownOpen === rec.url && (recDropdownOpen = null)">
+                      <div class="rec-add-split">
+                        <button class="btn btn-primary rec-add-main" @click="addRecommendation(rec)" title="Add to active playlist">+</button>
+                        <button class="btn btn-primary rec-add-arrow" @click.stop="recDropdownOpen = recDropdownOpen === rec.url ? null : rec.url" title="Add to…">▾</button>
+                      </div>
+                      <div class="rec-dropdown" x-show="recDropdownOpen === rec.url" x-transition>
+                        <div class="rec-dropdown-label">Add to playlist</div>
+                        <template x-for="pl in playlists.filter(p => p.id !== activePlaylist?.id)" :key="pl.id">
+                          <button class="rec-dropdown-item" @click="addRecommendationToPlaylist(rec, pl)">
+                            <span class="rec-dropdown-dot" :style="`background:${pl.bg_color}`"></span>
+                            <span x-text="pl.name"></span>
+                          </button>
+                        </template>
+                      </div>
+                    </div>
                   </div>
                 </template>
               </div>
