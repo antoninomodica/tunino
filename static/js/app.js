@@ -331,7 +331,14 @@ function tunino() {
     },
 
     prev() {
-      if (this.currentItemIndex === null) return;
+      if (this.currentItemIndex === null) {
+        if (this.previewingUrl) {
+          const i = this.recommendations.findIndex(r => r.audio_url === this.previewingUrl);
+          if (i > 0) this.previewRec(this.recommendations[i - 1]);
+          else if (this.audio.currentTime > 3) this.audio.currentTime = 0;
+        }
+        return;
+      }
       const i = this.currentItemIndex;
       if (this.audio.currentTime > 3) { this.audio.currentTime = 0; return; }
       this.playItem(Math.max(0, i - 1));
@@ -339,7 +346,12 @@ function tunino() {
 
     next() {
       if (this.currentItemIndex === null) {
-        if (this.activePlaylist?.items?.length) this.playItem(0);
+        if (this.previewingUrl) {
+          const i = this.recommendations.findIndex(r => r.audio_url === this.previewingUrl);
+          if (i !== -1 && i + 1 < this.recommendations.length) this.previewRec(this.recommendations[i + 1]);
+        } else if (this.activePlaylist?.items?.length) {
+          this.playItem(0);
+        }
         return;
       }
       const items = this.activePlaylist?.items || [];
