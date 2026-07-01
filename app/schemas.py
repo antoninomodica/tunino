@@ -55,3 +55,16 @@ class AddSingleTrackRequest(BaseModel):
 
 class ReorderRequest(BaseModel):
     item_ids: list[int]
+
+
+class UserOut(BaseModel):
+    id: int
+    username: str
+    display_name: Optional[str]
+
+    model_config = {"from_attributes": True}
+
+
+class LoginRequest(BaseModel):
+    username: str
+    password: str

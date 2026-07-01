@@ -15,6 +15,32 @@
 <body>
 <div id="app" x-data="tunino()" x-init="init()">
 
+  <!-- ── Login screen ── -->
+  <template x-if="!authenticated && authChecked">
+    <div class="empty-state" style="height:100vh">
+      <div class="modal" style="position:static;box-shadow:none">
+        <h2>Log in to Tunino</h2>
+        <div class="form-row">
+          <label>Username</label>
+          <input type="text" x-model="loginForm.username" :disabled="loginLoading" @keydown.enter="login()" />
+        </div>
+        <div class="form-row">
+          <label>Password</label>
+          <input type="password" x-model="loginForm.password" :disabled="loginLoading" @keydown.enter="login()" />
+        </div>
+        <template x-if="loginError">
+          <p style="color:var(--danger);font-size:0.85rem" x-text="loginError"></p>
+        </template>
+        <div class="form-actions">
+          <button class="btn btn-primary" :disabled="loginLoading" @click="login()">Log in</button>
+        </div>
+      </div>
+    </div>
+  </template>
+
+  <template x-if="authenticated">
+  <div>
+
   <!-- Mobile menu button -->
   <button id="mobile-menu-btn" @click="sidebarOpen = !sidebarOpen" aria-label="Menu">☰</button>
 
@@ -26,6 +52,10 @@
     <div class="sidebar-header">
       <span class="sidebar-logo">tuni<span>no</span></span>
       <button class="btn btn-primary" style="padding:6px 12px;font-size:0.8rem" @click="showCreateModal = true">+ New</button>
+    </div>
+    <div class="sidebar-header" style="padding-top:0">
+      <span style="font-size:0.8rem;color:var(--text-muted)" x-text="currentUser?.display_name || currentUser?.username"></span>
+      <button class="btn btn-ghost" style="padding:4px 8px;font-size:0.75rem" @click="logout()">Log out</button>
     </div>
 
     <div class="sidebar-list">
@@ -313,6 +343,9 @@
 
   <!-- Toast -->
   <div id="toast"></div>
+
+  </div>
+  </template>
 
 </div><!-- #app -->
 

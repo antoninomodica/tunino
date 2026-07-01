@@ -4,12 +4,13 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 
 from .database import engine, Base
-from .routers import playlists, tracks
+from .routers import auth, playlists, tracks
 
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Tunino")
 
+app.include_router(auth.router)
 app.include_router(playlists.router)
 app.include_router(tracks.router)
 

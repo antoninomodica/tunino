@@ -20,6 +20,14 @@ function playlistDuration(pl) {
 
 function tunino() {
   return {
+    /* ── Auth state ── */
+    currentUser: null,
+    authenticated: false,
+    authChecked: false,
+    loginForm: { username: '', password: '' },
+    loginError: '',
+    loginLoading: false,
+
     /* ── State ── */
     playlists: [],
     activePlaylist: null,
@@ -51,6 +59,17 @@ function tunino() {
 
     /* ── Init ── */
     async init() {
+      try {
+        this.currentUser = await this.api('GET', '/auth/me');
+        this.authenticated = true;
+      } catch (e) {
+        this.authenticated = false;
+      }
+      this.authChecked = true;
+      if (this.authenticated) await this._initApp();
+    },
+
+    async _initApp() {
       this.audio = new Audio();
       this.audio.volume = this.volume;
       this.audio.addEventListener('timeupdate', () => {
@@ -76,11 +95,46 @@ function tunino() {
       await this.loadPlaylists();
     },
 
+    /* ── Auth ── */
+    async login() {
+      if (!this.loginForm.username.trim() || !this.loginForm.password) return;
+      this.loginLoading = true;
+      this.loginError = '';
+      try {
+        this.currentUser = await this.api('POST', '/auth/login', this.loginForm);
+        this.authenticated = true;
+        this.loginForm = { username: '', password: '' };
+        await this._initApp();
+      } catch (e) {
+        this.loginError = e.message || 'Login failed';
+      } finally {
+        this.loginLoading = false;
+      }
+    },
+
+    async logout() {
+      try {
+        await this.api('POST', '/auth/logout');
+      } catch (e) { /* ignore */ }
+      this.currentUser = null;
+      this.authenticated = false;
+      this.playlists = [];
+      this.activePlaylist = null;
+      if (this.audio) this.audio.pause();
+      this.currentTrack = null;
+      this.currentItemIndex = null;
+    },
+
     /* ── API helpers ── */
     async api(method, path, body) {
       const opts = { method, headers: {} };
       if (body) { opts.headers['Content-Type'] = 'application/json'; opts.body = JSON.stringify(body); }
       const r = await fetch('/api' + path, opts);
+      if (r.status === 401) {
+        this.authenticated = false;
+        this.currentUser = null;
+        throw new Error('Not authenticated');
+      }
       if (!r.ok) {
         const err = await r.json().catch(() => ({ detail: r.statusText }));
         throw new Error(err.detail || r.statusText);
