@@ -24,12 +24,22 @@ class PlaylistItemOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class UserOut(BaseModel):
+    id: int
+    username: str
+    display_name: Optional[str]
+
+    model_config = {"from_attributes": True}
+
+
 class PlaylistOut(BaseModel):
     id: int
     name: str
     bg_color: str
     cover_image: Optional[str]
     created_at: datetime
+    owner: UserOut
+    collaborator_count: int = 0
     items: list[PlaylistItemOut] = []
 
     model_config = {"from_attributes": True}
@@ -57,14 +67,17 @@ class ReorderRequest(BaseModel):
     item_ids: list[int]
 
 
-class UserOut(BaseModel):
-    id: int
-    username: str
-    display_name: Optional[str]
-
-    model_config = {"from_attributes": True}
-
-
 class LoginRequest(BaseModel):
     username: str
     password: str
+
+
+class CollaboratorOut(BaseModel):
+    user_id: int
+    username: str
+    display_name: Optional[str]
+    added_at: datetime
+
+
+class ShareRequest(BaseModel):
+    username: str

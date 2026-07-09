@@ -6,12 +6,16 @@ from pathlib import Path
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File, Form
 from typing import Annotated
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from ..auth import get_current_user
 from ..database import get_db
-from ..models import Playlist, Track, PlaylistItem, User
-from ..schemas import PlaylistOut, PlaylistCreate, PlaylistUpdate, AddTrackRequest, AddSingleTrackRequest, ReorderRequest
+from ..models import Playlist, Track, PlaylistItem, PlaylistCollaborator, User
+from ..schemas import (
+    PlaylistOut, PlaylistCreate, PlaylistUpdate, AddTrackRequest, AddSingleTrackRequest, ReorderRequest,
+    CollaboratorOut, ShareRequest,
+)
 from ..scraper import scrape_bandcamp_url, scrape_recommendations
 
 router = APIRouter(prefix="/api/playlists", tags=["playlists"])
@@ -20,15 +24,37 @@ UPLOADS_DIR = Path(__file__).parent.parent.parent / "uploads"
 
 
 def _get_owned_playlist(db: Session, playlist_id: int, user: User) -> Playlist:
+    """Owner only. Use for delete + collaborator management."""
     pl = db.get(Playlist, playlist_id)
     if not pl or pl.owner_id != user.id:
         raise HTTPException(404, "Playlist not found")
     return pl
 
 
+def _is_collaborator(db: Session, playlist_id: int, user_id: int) -> bool:
+    return db.query(PlaylistCollaborator).filter_by(playlist_id=playlist_id, user_id=user_id).first() is not None
+
+
+def _get_accessible_playlist(db: Session, playlist_id: int, user: User) -> Playlist:
+    """Owner OR collaborator. Use for view/edit-content endpoints."""
+    pl = db.get(Playlist, playlist_id)
+    if not pl:
+        raise HTTPException(404, "Playlist not found")
+    if pl.owner_id != user.id and not _is_collaborator(db, playlist_id, user.id):
+        raise HTTPException(404, "Playlist not found")
+    return pl
+
+
 @router.get("", response_model=list[PlaylistOut])
 def list_playlists(db: Session = Depends(get_db), user: User = Depends(get_current_user)):
-    return db.query(Playlist).filter(Playlist.owner_id == user.id).order_by(Playlist.created_at.desc()).all()
+    return (
+        db.query(Playlist)
+        .outerjoin(PlaylistCollaborator, PlaylistCollaborator.playlist_id == Playlist.id)
+        .filter(or_(Playlist.owner_id == user.id, PlaylistCollaborator.user_id == user.id))
+        .distinct()
+        .order_by(Playlist.created_at.desc())
+        .all()
+    )
 
 
 @router.post("", response_model=PlaylistOut, status_code=201)
@@ -42,12 +68,12 @@ def create_playlist(body: PlaylistCreate, db: Session = Depends(get_db), user: U
 
 @router.get("/{playlist_id}", response_model=PlaylistOut)
 def get_playlist(playlist_id: int, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
-    return _get_owned_playlist(db, playlist_id, user)
+    return _get_accessible_playlist(db, playlist_id, user)
 
 
 @router.patch("/{playlist_id}", response_model=PlaylistOut)
 def update_playlist(playlist_id: int, body: PlaylistUpdate, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
-    pl = _get_owned_playlist(db, playlist_id, user)
+    pl = _get_accessible_playlist(db, playlist_id, user)
     if body.name is not None:
         pl.name = body.name
     if body.bg_color is not None:
@@ -64,7 +90,7 @@ async def upload_cover(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    pl = _get_owned_playlist(db, playlist_id, user)
+    pl = _get_accessible_playlist(db, playlist_id, user)
 
     ext = os.path.splitext(file.filename or "")[1].lower() or ".jpg"
     if ext not in {".jpg", ".jpeg", ".png", ".webp", ".gif"}:
@@ -99,7 +125,7 @@ def delete_playlist(playlist_id: int, db: Session = Depends(get_db), user: User 
 
 @router.post("/{playlist_id}/tracks", response_model=PlaylistOut)
 async def add_tracks(playlist_id: int, body: AddTrackRequest, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
-    pl = _get_owned_playlist(db, playlist_id, user)
+    pl = _get_accessible_playlist(db, playlist_id, user)
 
     try:
         scraped = await scrape_bandcamp_url(body.url)
@@ -132,7 +158,7 @@ async def add_tracks(playlist_id: int, body: AddTrackRequest, db: Session = Depe
 
 @router.post("/{playlist_id}/tracks/single", response_model=PlaylistOut)
 async def add_single_track(playlist_id: int, body: AddSingleTrackRequest, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
-    pl = _get_owned_playlist(db, playlist_id, user)
+    pl = _get_accessible_playlist(db, playlist_id, user)
 
     try:
         scraped = await scrape_bandcamp_url(body.url)
@@ -166,7 +192,7 @@ async def add_single_track(playlist_id: int, body: AddSingleTrackRequest, db: Se
 
 @router.delete("/{playlist_id}/tracks/{item_id}", response_model=PlaylistOut)
 def remove_track(playlist_id: int, item_id: int, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
-    pl = _get_owned_playlist(db, playlist_id, user)
+    pl = _get_accessible_playlist(db, playlist_id, user)
     item = db.query(PlaylistItem).filter_by(id=item_id, playlist_id=playlist_id).first()
     if not item:
         raise HTTPException(404, "Item not found")
@@ -184,7 +210,7 @@ async def get_recommendations(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    pl = _get_owned_playlist(db, playlist_id, user)
+    pl = _get_accessible_playlist(db, playlist_id, user)
 
     # Collect unique album-level bandcamp URLs already in the playlist
     existing_urls = {item.track.bandcamp_url for item in pl.items}
@@ -245,7 +271,7 @@ async def get_recommendations(
 
 @router.put("/{playlist_id}/reorder", response_model=PlaylistOut)
 def reorder_tracks(playlist_id: int, body: ReorderRequest, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
-    pl = _get_owned_playlist(db, playlist_id, user)
+    pl = _get_accessible_playlist(db, playlist_id, user)
 
     items_by_id = {item.id: item for item in pl.items}
     for pos, item_id in enumerate(body.item_ids):
@@ -255,3 +281,49 @@ def reorder_tracks(playlist_id: int, body: ReorderRequest, db: Session = Depends
     db.commit()
     db.refresh(pl)
     return pl
+
+
+@router.get("/{playlist_id}/collaborators", response_model=list[CollaboratorOut])
+def list_collaborators(playlist_id: int, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    pl = _get_accessible_playlist(db, playlist_id, user)
+    return [
+        CollaboratorOut(user_id=c.user_id, username=c.user.username, display_name=c.user.display_name, added_at=c.added_at)
+        for c in pl.collaborators
+    ]
+
+
+@router.post("/{playlist_id}/collaborators", response_model=CollaboratorOut, status_code=201)
+def add_collaborator(playlist_id: int, body: ShareRequest, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    pl = _get_owned_playlist(db, playlist_id, user)
+
+    target = db.query(User).filter(User.username == body.username).first()
+    if not target:
+        raise HTTPException(404, "User not found")
+    if target.id == pl.owner_id:
+        raise HTTPException(400, "User already owns this playlist")
+    if _is_collaborator(db, playlist_id, target.id):
+        raise HTTPException(400, "User is already a collaborator")
+
+    collab = PlaylistCollaborator(playlist_id=playlist_id, user_id=target.id)
+    db.add(collab)
+    db.commit()
+    return CollaboratorOut(user_id=target.id, username=target.username, display_name=target.display_name, added_at=collab.added_at)
+
+
+@router.delete("/{playlist_id}/collaborators/{user_id}", status_code=204)
+def remove_collaborator(playlist_id: int, user_id: int, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    _get_owned_playlist(db, playlist_id, user)
+    collab = db.query(PlaylistCollaborator).filter_by(playlist_id=playlist_id, user_id=user_id).first()
+    if not collab:
+        raise HTTPException(404, "Collaborator not found")
+    db.delete(collab)
+    db.commit()
+
+
+@router.delete("/{playlist_id}/leave", status_code=204)
+def leave_playlist(playlist_id: int, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    collab = db.query(PlaylistCollaborator).filter_by(playlist_id=playlist_id, user_id=user.id).first()
+    if not collab:
+        raise HTTPException(404, "Not a collaborator on this playlist")
+    db.delete(collab)
+    db.commit()

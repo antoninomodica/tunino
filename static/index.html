@@ -73,7 +73,15 @@
           </div>
           <div class="playlist-meta">
             <strong x-text="pl.name"></strong>
-            <span x-text="(pl.items?.length ?? 0) + ' tracks' + (pl.items?.length ? ' · ' + playlistDuration(pl) : '')"></span>
+            <span>
+              <span x-text="(pl.items?.length ?? 0) + ' tracks' + (pl.items?.length ? ' · ' + playlistDuration(pl) : '')"></span>
+              <template x-if="pl.owner.id === currentUser.id && pl.collaborator_count > 0">
+                <span class="shared-icon" :title="'Shared with ' + pl.collaborator_count + ' ' + (pl.collaborator_count === 1 ? 'person' : 'people')">👥</span>
+              </template>
+            </span>
+            <template x-if="pl.owner.id !== currentUser.id">
+              <span class="shared-badge" x-text="'Shared by ' + (pl.owner.display_name || pl.owner.username)"></span>
+            </template>
           </div>
         </div>
       </template>
@@ -135,7 +143,15 @@
                 </button>
                 <button class="btn btn-ghost" @click="copyPlaylistLinks()" title="Copy all track links">⎘ Copy links</button>
                 <button class="btn btn-ghost" @click="openEdit()">✏ Edit</button>
-                <button class="btn btn-ghost" style="color:var(--danger)" @click="deletePlaylist()">🗑</button>
+                <template x-if="activePlaylist.owner.id === currentUser.id">
+                  <button class="btn btn-ghost" @click="openShare()">👥 Share</button>
+                </template>
+                <template x-if="activePlaylist.owner.id === currentUser.id">
+                  <button class="btn btn-ghost" style="color:var(--danger)" @click="deletePlaylist()">🗑</button>
+                </template>
+                <template x-if="activePlaylist.owner.id !== currentUser.id">
+                  <button class="btn btn-ghost" style="color:var(--danger)" @click="leavePlaylist(activePlaylist)">Leave</button>
+                </template>
               </div>
             </div>
           </div>
@@ -344,6 +360,43 @@
       <div class="form-actions">
         <button class="btn btn-ghost" @click="showEditModal = false">Cancel</button>
         <button class="btn btn-primary" @click="saveEdit()">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Share Playlist Modal ── -->
+  <div class="modal-backdrop" x-show="showShareModal" x-transition @click.self="showShareModal = false">
+    <div class="modal">
+      <h2>Share "<span x-text="activePlaylist?.name"></span>"</h2>
+      <div class="form-row">
+        <label>Collaborators</label>
+        <template x-for="c in collaborators" :key="c.user_id">
+          <div class="collaborator-row">
+            <span x-text="c.display_name || c.username"></span>
+            <button class="btn-icon" @click="removeCollaborator(c)" title="Remove">✕</button>
+          </div>
+        </template>
+        <template x-if="collaborators.length === 0">
+          <p style="color:var(--text-muted);font-size:0.85rem">Not shared with anyone yet.</p>
+        </template>
+      </div>
+      <div class="form-row">
+        <label>Add a collaborator</label>
+        <template x-if="availableUsers().length > 0">
+          <select x-model="shareUsername">
+            <option value="" disabled>Select a user…</option>
+            <template x-for="u in availableUsers()" :key="u.id">
+              <option :value="u.username" x-text="u.display_name || u.username"></option>
+            </template>
+          </select>
+        </template>
+        <template x-if="availableUsers().length === 0">
+          <p style="color:var(--text-muted);font-size:0.85rem">No other users available to add.</p>
+        </template>
+      </div>
+      <div class="form-actions">
+        <button class="btn btn-ghost" @click="showShareModal = false">Close</button>
+        <button class="btn btn-primary" :disabled="!shareUsername" @click="addCollaborator()">Add</button>
       </div>
     </div>
   </div>

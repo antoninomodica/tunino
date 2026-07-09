@@ -1,10 +1,11 @@
 from datetime import datetime, timedelta
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from ..auth import get_current_user
 from ..database import get_db
-from ..models import Playlist, PlaylistItem, Track, User
+from ..models import Playlist, PlaylistCollaborator, PlaylistItem, Track, User
 from ..scraper import refresh_audio_url, AUDIO_URL_MAX_AGE_SECONDS
 
 router = APIRouter(prefix="/api/tracks", tags=["tracks"])
@@ -20,7 +21,8 @@ async def get_stream_url(track_id: int, db: Session = Depends(get_db), user: Use
         db.query(Track)
         .join(PlaylistItem)
         .join(Playlist)
-        .filter(Track.id == track_id, Playlist.owner_id == user.id)
+        .outerjoin(PlaylistCollaborator, PlaylistCollaborator.playlist_id == Playlist.id)
+        .filter(Track.id == track_id, or_(Playlist.owner_id == user.id, PlaylistCollaborator.user_id == user.id))
         .first()
     )
     if not track:

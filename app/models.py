@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Float, ForeignKey, DateTime, Boolean
+from sqlalchemy import Column, Integer, String, Float, ForeignKey, DateTime, Boolean, UniqueConstraint
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from .database import Base
@@ -43,6 +43,29 @@ class Playlist(Base):
         order_by="PlaylistItem.position",
         cascade="all, delete-orphan",
     )
+    collaborators = relationship(
+        "PlaylistCollaborator",
+        back_populates="playlist",
+        cascade="all, delete-orphan",
+    )
+
+    @property
+    def collaborator_count(self) -> int:
+        return len(self.collaborators)
+
+
+class PlaylistCollaborator(Base):
+    __tablename__ = "playlist_collaborators"
+
+    id = Column(Integer, primary_key=True, index=True)
+    playlist_id = Column(Integer, ForeignKey("playlists.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    added_at = Column(DateTime, default=datetime.utcnow)
+
+    playlist = relationship("Playlist", back_populates="collaborators")
+    user = relationship("User")
+
+    __table_args__ = (UniqueConstraint("playlist_id", "user_id", name="uq_playlist_collaborator"),)
 
 
 class Track(Base):

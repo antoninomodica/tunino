@@ -33,8 +33,12 @@ function tunino() {
     activePlaylist: null,
     showCreateModal: false,
     showEditModal: false,
+    showShareModal: false,
     newPlaylist: { name: '', bg_color: '#1a1a2e' },
     editForm: { name: '', bg_color: '#1a1a2e' },
+    collaborators: [],
+    allUsers: [],
+    shareUsername: '',
     addUrl: '',
     addLoading: false,
 
@@ -270,6 +274,51 @@ function tunino() {
       await this.api('DELETE', `/playlists/${this.activePlaylist.id}`);
       this.playlists = this.playlists.filter(p => p.id !== this.activePlaylist.id);
       this.activePlaylist = null;
+    },
+
+    /* ── Sharing ── */
+    async openShare() {
+      if (!this.activePlaylist) return;
+      this.shareUsername = '';
+      this.showShareModal = true;
+      await Promise.all([this.loadCollaborators(), this.loadUsers()]);
+    },
+
+    async loadCollaborators() {
+      this.collaborators = await this.api('GET', `/playlists/${this.activePlaylist.id}/collaborators`);
+    },
+
+    async loadUsers() {
+      this.allUsers = await this.api('GET', '/users');
+    },
+
+    availableUsers() {
+      const collaboratorIds = new Set(this.collaborators.map(c => c.user_id));
+      return this.allUsers.filter(u => u.id !== this.activePlaylist?.owner.id && !collaboratorIds.has(u.id));
+    },
+
+    async addCollaborator() {
+      if (!this.shareUsername) return;
+      try {
+        await this.api('POST', `/playlists/${this.activePlaylist.id}/collaborators`, { username: this.shareUsername });
+        this.shareUsername = '';
+        await this.loadCollaborators();
+        this.showToast('Playlist shared');
+      } catch (e) {
+        this.showToast(e.message, true);
+      }
+    },
+
+    async removeCollaborator(c) {
+      await this.api('DELETE', `/playlists/${this.activePlaylist.id}/collaborators/${c.user_id}`);
+      this.collaborators = this.collaborators.filter(x => x.user_id !== c.user_id);
+    },
+
+    async leavePlaylist(pl) {
+      if (!confirm(`Leave "${pl.name}"? You'll lose access unless re-added.`)) return;
+      await this.api('DELETE', `/playlists/${pl.id}/leave`);
+      this.playlists = this.playlists.filter(p => p.id !== pl.id);
+      if (this.activePlaylist?.id === pl.id) this.activePlaylist = null;
     },
 
     /* ── Cover image ── */
