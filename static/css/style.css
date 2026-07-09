@@ -126,7 +126,7 @@ html, body { height: 100%; font-family: 'Inter', system-ui, sans-serif; backgrou
 .btn-icon.play-main:hover { background: var(--accent-dim); transform: scale(1.05); }
 
 /* ── Forms ── */
-input[type="text"], input[type="color"] {
+input[type="text"], input[type="password"], input[type="color"] {
   background: var(--card);
   border: 1px solid var(--border);
   color: var(--text);
@@ -135,8 +135,10 @@ input[type="text"], input[type="color"] {
   font-size: 0.875rem;
   outline: none;
   transition: border-color 0.15s;
+  -webkit-appearance: none;
+  appearance: none;
 }
-input[type="text"]:focus { border-color: var(--accent); }
+input[type="text"]:focus, input[type="password"]:focus { border-color: var(--accent); }
 input[type="color"] { width: 44px; height: 36px; padding: 2px 4px; cursor: pointer; }
 
 /* ── Modal ── */
@@ -159,7 +161,7 @@ input[type="color"] { width: 44px; height: 36px; padding: 2px 4px; cursor: point
 .modal h2 { font-size: 1.1rem; font-weight: 600; }
 .form-row { display: flex; flex-direction: column; gap: 6px; }
 .form-row label { font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
-.form-row input[type="text"] { width: 100%; }
+.form-row input[type="text"], .form-row input[type="password"] { width: 100%; }
 .form-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 4px; }
 
 /* ── Playlist View ── */
